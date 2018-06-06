@@ -4,6 +4,7 @@ $virtualBoxMinVersion = "5.1.10"
 $packerMinVersion = "0.10.0"
 $vagrantMinVersion = "1.9.0"
 $vagrantreloadMinVersion = "0.0.1"
+$packer = "packer"
 
 function CompareVersions ($actualVersion, $expectedVersion, $exactMatch = $False) {
     If ($exactMatch) {
@@ -29,19 +30,26 @@ function CompareVersions ($actualVersion, $expectedVersion, $exactMatch = $False
     return $True
 }
 
-If ($(Test-Path "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe") -eq $True) {
-    $vboxVersion = cmd.exe /c "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" -v
+$expectedVBoxLocation = "C:\Program Files\Oracle\VirtualBox"
+If ($(Test-Path "$expectedVBoxLocation\VBoxManage.exe") -eq $True) {
+    $vboxVersion = cmd.exe /c "$expectedVBoxLocation\VBoxManage.exe" -v
     $vboxVersion = $vboxVersion.split("r")[0]
-}
-
-If (CompareVersions -actualVersion $vboxVersion -expectedVersion $virtualBoxMinVersion --exactMatch $False) {
-    Write-Host "Compatible version of VirtualBox found."
 } else {
-    Write-Host "Could not find a compatible version of VirtualBox at C:\Program Files\Oracle\VirtualBox\. Please download and install it from https://www.virtualbox.org/"
+    Write-Host "VirtualBox is not installed (or not in the expected location of $expectedVBoxLocation\)"
+    Write-Host "Please download and install it from https://www.virtualbox.org/"
     exit
 }
 
-$packerVersion = cmd.exe /c "packer" -v
+If (CompareVersions -actualVersion $vboxVersion -expectedVersion $virtualBoxMinVersion -exactMatch $False) {
+    Write-Host "Compatible version of VirtualBox found."
+} else {
+    Write-Host "A compatible version of VirtualBox was not found."
+    Write-Host "Current Version=[$vboxVersion], Minimum Version=[$virtualBoxMinVersion]"
+    Write-Host "Please download and install it from https://www.virtualbox.org/"
+    exit
+}
+
+$packerVersion = cmd.exe /c $packer -v
 
 If (CompareVersions -actualVersion $packerVersion -expectedVersion $packerMinVersion) {
     Write-Host "Compatible version of packer found."
@@ -88,11 +96,11 @@ If (![string]::IsNullOrEmpty($vagrantPlugins)) {
 
 Write-Host "All requirements found. Proceeding..."
 
-If ($(Test-Path "windows_2008_r2_virtualbox.box") -eq $True) {
+If ($(Test-Path "packer\templates\windows_2008_r2_virtualbox.box") -eq $True) {
     Write-Host "It looks like the Vagrant box already exists. Skipping the Packer build."
 } else {
     Write-Host "Building the Vagrant box..."
-    cmd.exe /c packer build windows_2008_r2.json
+    cmd.exe /c $packer build --only=virtualbox-iso packer\templates\windows_2008_r2.json
 
     if($?) {
         Write-Host "Box successfully built by Packer."
@@ -103,15 +111,15 @@ If ($(Test-Path "windows_2008_r2_virtualbox.box") -eq $True) {
 
 echo "Attempting to add the box to Vagrant..."
 
-$vagrant_box_list = cmd.exe /c "vagrant box list" | select-string -pattern "metasploitable3"
+$vagrant_box_list = cmd.exe /c "vagrant box list" | select-string -pattern "metasploitable3-win2k8"
 
 If ($vagrant_box_list) { $vagrant_box_list = $vagrant_box_list.ToString().Trim() }
 
-If ($vagrant_box_list -eq "metasploitable3") {
-    Write-Host "metasploitable3 already found in Vagrant box repository. Skipping the addition to Vagrant."
+If ($vagrant_box_list -eq "metasploitable3-win2k8") {
+    Write-Host "metasploitable3-win2k8 already found in Vagrant box repository. Skipping the addition to Vagrant."
 } else {
 
-    cmd.exe /c vagrant box add metasploitable3 windows_2008_r2_virtualbox.box
+    cmd.exe /c vagrant box add metasploitable3-win2k8 packer\builds\windows_2008_r2_virtualbox.box
 
     if($?) {
         Write-Host "Box successfully added to Vagrant."

@@ -1,8 +1,10 @@
 .vagrant/
 packer_cache/
+packer/builds/
 *.exe
 *.msi
 *.msu
-
+*.DS_Store
 resources/manageengine/setup.log
 windows_2008_r2_virtualbox.box
+windows_2008_r2_vmware.box
